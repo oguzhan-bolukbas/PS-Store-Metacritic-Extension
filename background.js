@@ -29,10 +29,16 @@ async function setCache(cache) {
 
 function isCacheValid(cacheEntry) {
   if (!cacheEntry || !cacheEntry.timestamp) {
+    console.log(`🔍 Cache validation: Entry invalid - missing entry or timestamp`, cacheEntry);
     return false;
   }
   const now = Date.now();
-  return (now - cacheEntry.timestamp) < CACHE_DURATION;
+  const age = now - cacheEntry.timestamp;
+  const isValid = age < CACHE_DURATION;
+  const ageHours = Math.round(age / (1000 * 60 * 60) * 10) / 10;
+  
+  console.log(`🔍 Cache validation: age=${ageHours}h, limit=24h, valid=${isValid}`);
+  return isValid;
 }
 
 async function cleanupCache() {
@@ -124,6 +130,9 @@ async function fetchMultipleScores(gameRequests) {
   const gamesToFetch = [];
   let cacheHits = 0;
   
+  console.log(`🗂️ Current cache contents:`, cache);
+  console.log(`🗂️ Cache keys:`, Object.keys(cache));
+  
   // Remove duplicates from gameRequests first
   const uniqueGameRequests = [];
   const seenGames = new Set();
@@ -139,21 +148,60 @@ async function fetchMultipleScores(gameRequests) {
   
   console.log(`Background: Processing ${uniqueGameRequests.length} unique games (removed ${gameRequests.length - uniqueGameRequests.length} duplicates)`);
   
-  // First pass: check cache for each unique game
+  // Group variants by base game name (remove numbers/roman numerals for grouping)
+  const gameGroups = new Map();
+  
   for (const gameRequest of uniqueGameRequests) {
-    const cachedEntry = cache[gameRequest.parsedGameName];
+    // Create a base name by removing common sequel patterns
+    const baseName = gameRequest.parsedGameName
+      .replace(/-(?:ii?i?|iv|v|vi?i?|ix|x|\d+)$/i, '') // Remove sequel suffixes
+      .replace(/-(?:remastered|remake|redux|definitive|goty|collection)$/i, ''); // Remove edition suffixes
     
-    if (isCacheValid(cachedEntry)) {
-      // Use cached data
-      results[gameRequest.parsedGameName] = {
-        metaScore: cachedEntry.metaScore,
-        userScore: cachedEntry.userScore
-      };
-      cacheHits++;
-      console.log(`Background: Using cached scores for ${gameRequest.parsedGameName}`);
+    if (!gameGroups.has(baseName)) {
+      gameGroups.set(baseName, []);
+    }
+    gameGroups.get(baseName).push(gameRequest);
+  }
+  
+  console.log(`🎮 Grouped ${uniqueGameRequests.length} requests into ${gameGroups.size} game groups`);
+  
+  // Process each group: check if any variant has cached data
+  for (const [baseName, variants] of gameGroups) {
+    console.log(`🎯 Processing group "${baseName}" with variants: [${variants.map(v => v.parsedGameName).join(', ')}]`);
+    
+    let foundCachedResult = null;
+    let cachedVariantName = null;
+    
+    // First, check if any variant has valid cached data
+    for (const variant of variants) {
+      const cachedEntry = cache[variant.parsedGameName];
+      console.log(`� Checking cache for ${variant.parsedGameName}:`, cachedEntry);
+      
+      if (isCacheValid(cachedEntry)) {
+        foundCachedResult = {
+          metaScore: cachedEntry.metaScore,
+          userScore: cachedEntry.userScore
+        };
+        cachedVariantName = variant.parsedGameName;
+        console.log(`� CACHE HIT: Found cached data for ${cachedVariantName}`);
+        break;
+      }
+    }
+    
+    if (foundCachedResult) {
+      // Apply cached result to ALL variants in this group
+      for (const variant of variants) {
+        results[variant.parsedGameName] = foundCachedResult;
+        cacheHits++;
+        console.log(`💾 CACHE HIT: Using cached scores from ${cachedVariantName} for ${variant.parsedGameName}: Meta: ${foundCachedResult.metaScore}, User: ${foundCachedResult.userScore}`);
+      }
     } else {
-      // Need to fetch fresh data
-      gamesToFetch.push(gameRequest);
+      // No cached data found for any variant, need to fetch them
+      console.log(`🚫 CACHE MISS: No cached data found for any variant of ${baseName}`);
+      for (const variant of variants) {
+        console.log(`   Need to fetch fresh data for ${variant.parsedGameName}`);
+        gamesToFetch.push(variant);
+      }
     }
   }
   
@@ -242,6 +290,7 @@ async function createTabAndFetchScore(metacriticUrl, parsedGameName) {
   let tab = null;
   try {
     console.log(`Background: Creating tab for ${parsedGameName}`);
+    console.log(`🌐 Opening URL: ${metacriticUrl}`);
     
     // Create a new tab in the background
     tab = await chrome.tabs.create({ 
@@ -250,10 +299,13 @@ async function createTabAndFetchScore(metacriticUrl, parsedGameName) {
       pinned: true 
     });
     
+    console.log(`📑 Tab ${tab.id} created for: ${metacriticUrl}`);
+    
     // Wait for the page to load completely
     await new Promise(resolve => {
       const listener = (tabId, changeInfo) => {
         if (tabId === tab.id && changeInfo.status === 'complete') {
+          console.log(`✅ Tab ${tab.id} finished loading: ${metacriticUrl}`);
           chrome.tabs.onUpdated.removeListener(listener);
           resolve();
         }
@@ -263,6 +315,8 @@ async function createTabAndFetchScore(metacriticUrl, parsedGameName) {
     
     // Minimal wait for DOM to be ready
     await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    console.log(`🔍 Executing score queries on tab ${tab.id} for: ${parsedGameName}`);
     
     // Execute the exact queries you specified in the tab
     const results = await chrome.scripting.executeScript({
@@ -281,16 +335,18 @@ async function createTabAndFetchScore(metacriticUrl, parsedGameName) {
     });
     
     // Close the background tab immediately after getting the data
+    console.log(`🗑️ Closing tab ${tab.id} for: ${metacriticUrl}`);
     await chrome.tabs.remove(tab.id);
     tab = null; // Mark as closed
     
     const scores = results[0]?.result;
     
     if (scores && scores.metaScore && scores.userScore) {
-      console.log(`Background: Got scores for ${parsedGameName}: Meta: ${scores.metaScore}, User: ${scores.userScore}`);
+      console.log(`✅ SUCCESS: Got scores for ${parsedGameName} from ${metacriticUrl}: Meta: ${scores.metaScore}, User: ${scores.userScore}`);
       return scores;
     } else {
-      console.log(`Background: No scores found for ${parsedGameName}`);
+      console.log(`❌ NO SCORES: No scores found for ${parsedGameName} from ${metacriticUrl}`);
+      console.log(`   Raw result:`, scores);
       return null;
     }
     

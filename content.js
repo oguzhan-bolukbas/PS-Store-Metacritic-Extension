@@ -192,21 +192,24 @@ function generateGameVariants(parsedGameName) {
 // Step 6, 7, 8: Fetch Metacritic scores from live website (batch processing)
 async function fetchAllMetacriticScores(gameRequests) {
   try {
-    console.log(`Attempting to get live scores for ${gameRequests.length} games`);
+    console.log(`🚀 SENDING BATCH REQUEST: Attempting to get live scores for ${gameRequests.length} games`);
+    console.log(`📦 Batch request payload:`, gameRequests);
     
     // Send batch message to background script to fetch real-time scores
     return new Promise((resolve) => {
+      console.log(`📡 Calling chrome.runtime.sendMessage with fetchMultipleScores action...`);
       chrome.runtime.sendMessage(
         { 
           action: 'fetchMultipleScores', 
           gameRequests: gameRequests
         },
         (response) => {
+          console.log(`📥 RECEIVED BATCH RESPONSE:`, response);
           if (response) {
-            console.log(`Received batch scores for ${Object.keys(response).length} games`);
+            console.log(`✅ Received batch scores for ${Object.keys(response).length} games`);
             resolve(response);
           } else {
-            console.log(`No batch scores received`);
+            console.log(`❌ No batch scores received - response was null/undefined`);
             resolve({});
           }
         }
@@ -352,10 +355,12 @@ async function processAllSteps() {
         
         // Add all variants to batch request
         for (const variant of gameVariants) {
+          const gameUrl = `https://www.metacritic.com/game/${variant}/`;
           gameRequests.push({
-            gameUrl: `https://www.metacritic.com/game/${variant}/`,
+            gameUrl: gameUrl,
             parsedGameName: variant
           });
+          console.log(`📤 Queuing URL for variant "${variant}": ${gameUrl}`);
         }
         
       } catch (error) {
