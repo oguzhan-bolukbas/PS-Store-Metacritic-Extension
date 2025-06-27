@@ -25,15 +25,17 @@ function parsePageNumber(url) {
 
 // Step 3: Calculate tile range based on page number
 function calculateTileRange(pageNumber) {
-  const startIndex = (pageNumber - 1) * 24;
-  const endIndex = startIndex + 23;
+  // PlayStation Store resets tile indices to 0-23 on each page
+  // regardless of which page number we're on
+  const startIndex = 0;
+  const endIndex = 23;
   const tileIndices = [];
   
   for (let i = startIndex; i <= endIndex; i++) {
     tileIndices.push(i);
   }
   
-  console.log(`Page ${pageNumber} - Tile range: ${startIndex} to ${endIndex}`, tileIndices);
+  console.log(`Page ${pageNumber} - Tile range: ${startIndex} to ${endIndex} (always 0-23 per page)`, tileIndices);
   return tileIndices;
 }
 
