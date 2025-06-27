@@ -198,12 +198,30 @@ async function fetchAllMetacriticScores(gameRequests) {
     // Send batch message to background script to fetch real-time scores
     return new Promise((resolve) => {
       console.log(`📡 Calling chrome.runtime.sendMessage with fetchMultipleScores action...`);
+      
+      // Check if extension context is valid
+      if (!chrome.runtime?.id) {
+        console.error(`❌ Extension context invalid - extension may have been reloaded`);
+        resolve({});
+        return;
+      }
+      
       chrome.runtime.sendMessage(
         { 
           action: 'fetchMultipleScores', 
           gameRequests: gameRequests
         },
         (response) => {
+          // Check for chrome.runtime.lastError
+          if (chrome.runtime.lastError) {
+            console.error(`❌ Extension message error:`, chrome.runtime.lastError.message);
+            if (chrome.runtime.lastError.message.includes('Extension context invalidated')) {
+              console.error(`🔄 Extension was reloaded - please refresh the page to continue`);
+            }
+            resolve({});
+            return;
+          }
+          
           console.log(`📥 RECEIVED BATCH RESPONSE:`, response);
           if (response) {
             console.log(`✅ Received batch scores for ${Object.keys(response).length} games`);
@@ -307,6 +325,12 @@ async function processAllSteps() {
   
   console.log('🚀 Starting PS Store Metacritic Extension - Following all steps...');
   
+  // Check if extension context is valid before proceeding
+  if (!chrome.runtime?.id) {
+    console.error('❌ Extension context invalid - extension may have been reloaded. Please refresh the page.');
+    return;
+  }
+  
   try {
     // Step 1: Get the URL
     const currentUrl = getCurrentPageUrl();
@@ -345,22 +369,30 @@ async function processAllSteps() {
         const gameVariants = generateGameVariants(parsedGameName);
         console.log(`🎮 Generated ${gameVariants.length} variant(s) for "${gameName}": [${gameVariants.join(', ')}]`);
         
-        // Store game data for later processing
-        gameDataMap.set(parsedGameName, {
+        // Store game data for later processing - use tileIndex as unique key
+        gameDataMap.set(tileIndex, {
           tileIndex: tileIndex,
           originalName: gameName,
           parsedName: parsedGameName,
           variants: gameVariants
         });
         
-        // Add all variants to batch request
+        // Add all variants to batch request (only if not already queued)
+        const alreadyQueued = new Set();
         for (const variant of gameVariants) {
           const gameUrl = `https://www.metacritic.com/game/${variant}/`;
-          gameRequests.push({
-            gameUrl: gameUrl,
-            parsedGameName: variant
-          });
-          console.log(`📤 Queuing URL for variant "${variant}": ${gameUrl}`);
+          
+          // Check if this exact URL is already queued
+          const alreadyExists = gameRequests.some(req => req.gameUrl === gameUrl);
+          if (!alreadyExists) {
+            gameRequests.push({
+              gameUrl: gameUrl,
+              parsedGameName: variant
+            });
+            console.log(`📤 Queuing URL for variant "${variant}": ${gameUrl}`);
+          } else {
+            console.log(`⏭️ Skipping duplicate URL for variant "${variant}": ${gameUrl}`);
+          }
         }
         
       } catch (error) {
@@ -373,10 +405,10 @@ async function processAllSteps() {
       return;
     }
 
-    console.log(`📊 Summary: Found ${gameRequests.length} total requests for ${gameDataMap.size} unique games`);
+    console.log(`📊 Summary: Found ${gameRequests.length} total requests for ${gameDataMap.size} tiles`);
     console.log(`📋 Requests breakdown:`);
-    gameDataMap.forEach((gameData, parsedName) => {
-      console.log(`  - "${gameData.originalName}" → [${gameData.variants.join(', ')}]`);
+    gameDataMap.forEach((gameData, tileIndex) => {
+      console.log(`  - Tile ${tileIndex}: "${gameData.originalName}" → [${gameData.variants.join(', ')}]`);
     });
     
     console.log(`Found ${gameRequests.length} games to process. Starting batch fetch...`);
@@ -385,7 +417,7 @@ async function processAllSteps() {
     const allScores = await fetchAllMetacriticScores(gameRequests);
     
     // Second pass: apply scores to the page
-    for (const [parsedGameName, gameData] of gameDataMap) {
+    for (const [tileIndex, gameData] of gameDataMap) {
       try {
         let foundScores = null;
         let usedVariant = null;
@@ -403,13 +435,13 @@ async function processAllSteps() {
         if (foundScores) {
           // Step 9: Add scores to PS Store page
           addScoresToProductTile(gameData.tileIndex, foundScores.metaScore, foundScores.userScore, gameData.originalName);
-          console.log(`✅ Applied scores for ${gameData.originalName} using variant "${usedVariant}": Meta: ${foundScores.metaScore}, User: ${foundScores.userScore}`);
+          console.log(`✅ Applied scores for ${gameData.originalName} (tile ${tileIndex}) using variant "${usedVariant}": Meta: ${foundScores.metaScore}, User: ${foundScores.userScore}`);
         } else {
-          console.log(`❌ No valid scores found for ${gameData.originalName} (tried variants: ${gameData.variants.join(', ')})`);
+          console.log(`❌ No valid scores found for ${gameData.originalName} (tile ${tileIndex}) (tried variants: ${gameData.variants.join(', ')})`);
         }
         
       } catch (error) {
-        console.error(`Error applying scores for ${gameData.originalName}:`, error);
+        console.error(`Error applying scores for ${gameData.originalName} (tile ${tileIndex}):`, error);
       }
     }
     
@@ -417,6 +449,17 @@ async function processAllSteps() {
     
   } catch (error) {
     console.error('Error in main processing:', error);
+    
+    // Provide specific guidance for common errors
+    if (error.message && error.message.includes('Extension context invalidated')) {
+      console.error('🔄 EXTENSION RELOADED: The extension was reloaded while running.');
+      console.error('📋 TO FIX: Refresh this page to restore extension functionality.');
+    } else if (error.message && error.message.includes('chrome.runtime')) {
+      console.error('🔌 CONNECTION ERROR: Communication with extension background script failed.');
+      console.error('📋 TO FIX: Try refreshing the page or reloading the extension.');
+    } else {
+      console.error('❌ UNEXPECTED ERROR: Please check the extension console for details.');
+    }
   } finally {
     // Always reset the processing flag
     isProcessing = false;
