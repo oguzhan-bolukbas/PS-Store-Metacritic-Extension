@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "PS Store Metacritic Extension",
+  "version": "1.0",
+  "description": "Shows Metacritic scores on PlayStation Store pages",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://store.playstation.com/*",
+    "https://www.metacritic.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://store.playstation.com/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "PS Store Metacritic"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "64": "icons/icon64.png"
+  }
+}

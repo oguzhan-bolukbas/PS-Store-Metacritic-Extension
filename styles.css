@@ -1,0 +1,82 @@
+/* PS Store Metacritic Extension Styles */
+
+.metacritic-scores-container {
+  display: inline-flex !important;
+  gap: 4px !important;
+  margin-left: 8px !important;
+  vertical-align: middle !important;
+}
+
+.metacritic-score {
+  display: inline-block !important;
+  color: white !important;
+  padding: 3px 6px !important;
+  border-radius: 3px !important;
+  font-weight: bold !important;
+  font-size: 10px !important;
+  font-family: inherit !important;
+  line-height: 1.2 !important;
+  text-align: center !important;
+  box-sizing: border-box !important;
+  white-space: nowrap !important;
+}
+
+/* Meta score styling (0-100 scale) */
+.meta-score {
+  background-color: #00ce7a !important; /* Default green for 75+ */
+}
+
+.meta-score[data-score="90"],
+.meta-score[data-score="91"],
+.meta-score[data-score="92"],
+.meta-score[data-score="93"],
+.meta-score[data-score="94"],
+.meta-score[data-score="95"],
+.meta-score[data-score="96"],
+.meta-score[data-score="97"],
+.meta-score[data-score="98"],
+.meta-score[data-score="99"],
+.meta-score[data-score="100"] {
+  background-color: #00ce7a !important; /* Green for 75+ */
+}
+
+/* User score styling (0-10 scale) */
+.user-score {
+  background-color: #00ce7a !important; /* Default green for 7.5+ */
+}
+
+.user-score[data-score^="8"],
+.user-score[data-score^="9"],
+.user-score[data-score="10"] {
+  background-color: #00ce7a !important; /* Green for 7.5+ */
+}
+
+.user-score[data-score^="6"],
+.user-score[data-score^="7"] {
+  background-color: #ffcc33 !important; /* Yellow for 5.0-7.4 */
+  color: black !important;
+}
+
+.user-score[data-score^="0"],
+.user-score[data-score^="1"],
+.user-score[data-score^="2"],
+.user-score[data-score^="3"],
+.user-score[data-score^="4"],
+.user-score[data-score^="5"] {
+  background-color: #ff6874 !important; /* Red for 0-4.9 */
+}
+
+/* Meta score color ranges for different values */
+.meta-score[data-score^="5"],
+.meta-score[data-score^="6"] {
+  background-color: #ffcc33 !important; /* Yellow for 50-74 */
+  color: black !important;
+}
+
+.meta-score[data-score^="0"],
+.meta-score[data-score^="1"],
+.meta-score[data-score^="2"],
+.meta-score[data-score^="3"],
+.meta-score[data-score^="4"] {
+  background-color: #ff6874 !important; /* Red for 0-49 */
+}
