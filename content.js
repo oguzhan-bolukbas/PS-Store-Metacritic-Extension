@@ -102,6 +102,7 @@ function shouldProcessProduct(productType) {
 // Step 5: Parse game name for Metacritic URL format
 function parseGameNameForUrl(gameName) {
   const parsedName = gameName
+    .replace(/\s+(PS4\s*&\s*PS5|PS5\s*&\s*PS4|PS4|PS5)\s*$/i, '') // Remove platform suffixes
     .toLowerCase()
     .replace(/™|®|©/g, '') // Remove trademark symbols
     .replace(/[^a-z0-9\s]/g, '') // Remove special characters
