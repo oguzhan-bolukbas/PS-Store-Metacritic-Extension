@@ -167,6 +167,7 @@ function addScoresToProductTile(tileIndex, metaScore, userScore, gameTitle) {
   // Create container for both scores
   const scoresContainer = document.createElement('div');
   scoresContainer.className = 'metacritic-scores-container';
+  scoresContainer.style.fontFamily = 'sst,helvetica,arial,sans-serif';
   
   // Create Meta score element - Format: "Meta: 90"
   const metaElement = document.createElement('span');
@@ -174,6 +175,7 @@ function addScoresToProductTile(tileIndex, metaScore, userScore, gameTitle) {
   metaElement.textContent = `Meta: ${metaScore}`;
   metaElement.setAttribute('data-score', metaScore);
   metaElement.title = `Metacritic Critics Score: ${metaScore}/100`;
+  metaElement.style.fontFamily = 'sst,helvetica,arial,sans-serif';
   
   // Create User score element - Format: "User: 8.2"
   const userElement = document.createElement('span');
@@ -181,6 +183,7 @@ function addScoresToProductTile(tileIndex, metaScore, userScore, gameTitle) {
   userElement.textContent = `User: ${userScore}`;
   userElement.setAttribute('data-score', userScore);
   userElement.title = `Metacritic User Score: ${userScore}/10`;
+  userElement.style.fontFamily = 'sst,helvetica,arial,sans-serif';
   
   // Add both elements to container
   scoresContainer.appendChild(metaElement);
