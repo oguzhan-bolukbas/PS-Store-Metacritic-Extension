@@ -6,11 +6,15 @@ console.log('PS Store Metacritic Extension loaded');
   'use strict';
   
   try {
+    // Global state to prevent duplicate runs
+    let isProcessing = false;
+    let lastProcessTime = 0;
+    const DEBOUNCE_DELAY = 2000; // 2 seconds debounce
 
-// Step 1: Get the URL of the extension page
-function getCurrentPageUrl() {
-  const url = window.location.href;
-  console.log('Current URL:', url);
+    // Step 1: Get the URL of the extension page
+    function getCurrentPageUrl() {
+      const url = window.location.href;
+      console.log('Current URL:', url);
   return url;
 }
 
@@ -204,6 +208,21 @@ function addScoresToProductTile(tileIndex, metaScore, userScore, gameTitle) {
 
 // Main processing function that follows all steps (batch processing)
 async function processAllSteps() {
+  // Prevent duplicate runs
+  const now = Date.now();
+  if (isProcessing) {
+    console.log('⏸️ Processing already in progress, skipping...');
+    return;
+  }
+  
+  if (now - lastProcessTime < DEBOUNCE_DELAY) {
+    console.log(`⏸️ Too soon since last run (${now - lastProcessTime}ms < ${DEBOUNCE_DELAY}ms), skipping...`);
+    return;
+  }
+  
+  isProcessing = true;
+  lastProcessTime = now;
+  
   console.log('🚀 Starting PS Store Metacritic Extension - Following all steps...');
   
   try {
@@ -290,6 +309,9 @@ async function processAllSteps() {
     
   } catch (error) {
     console.error('Error in main processing:', error);
+  } finally {
+    // Always reset the processing flag
+    isProcessing = false;
   }
 }
 
@@ -340,9 +362,11 @@ const observer = new MutationObserver((mutations) => {
     }
   });
   
-  if (shouldProcess) {
+  if (shouldProcess && !isProcessing) {
     console.log('New product tiles detected, processing...');
     setTimeout(processAllSteps, 1000);
+  } else if (shouldProcess && isProcessing) {
+    console.log('New product tiles detected, but processing already in progress');
   }
 });
 
