@@ -109,46 +109,33 @@ function parseGameNameForUrl(gameName) {
   return parsedName;
 }
 
-// Step 6, 7, 8: Fetch Metacritic scores from live website
-async function fetchMetacriticScores(parsedGameName) {
+// Step 6, 7, 8: Fetch Metacritic scores from live website (batch processing)
+async function fetchAllMetacriticScores(gameRequests) {
   try {
-    const metacriticUrl = `https://www.metacritic.com/game/${parsedGameName}/`;
-    console.log(`Attempting to get live scores from: ${metacriticUrl}`);
+    console.log(`Attempting to get live scores for ${gameRequests.length} games`);
     
-    // Send message to background script to fetch real-time scores
+    // Send batch message to background script to fetch real-time scores
     return new Promise((resolve) => {
       chrome.runtime.sendMessage(
         { 
-          action: 'fetchMetacriticScores', 
-          gameUrl: metacriticUrl,
-          parsedGameName: parsedGameName
+          action: 'fetchMultipleScores', 
+          gameRequests: gameRequests
         },
         (response) => {
-          if (response && response.metaScore && response.userScore) {
-            console.log(`Live scores for ${parsedGameName}: Meta: ${response.metaScore}, User: ${response.userScore}`);
+          if (response) {
+            console.log(`Received batch scores for ${Object.keys(response).length} games`);
             resolve(response);
           } else {
-            console.log(`No live scores available for ${parsedGameName}`);
-            // Fallback to known games only for demonstration/testing
-            const fallbackGames = {
-              'horizon-zero-dawn-remastered': { metaScore: '85', userScore: '6.9' },
-              'black-myth-wukong': { metaScore: '81', userScore: '8.2' }
-            };
-            
-            if (fallbackGames[parsedGameName]) {
-              console.log(`Using fallback scores for ${parsedGameName}`);
-              resolve(fallbackGames[parsedGameName]);
-            } else {
-              resolve(null);
-            }
+            console.log(`No batch scores received`);
+            resolve({});
           }
         }
       );
     });
     
   } catch (error) {
-    console.error(`Error fetching Metacritic scores for ${parsedGameName}:`, error);
-    return null;
+    console.error(`Error fetching batch Metacritic scores:`, error);
+    return {};
   }
 }
 
@@ -215,7 +202,7 @@ function addScoresToProductTile(tileIndex, metaScore, userScore, gameTitle) {
   console.log(`✅ Successfully added Meta: ${metaScore}, User: ${userScore} for ${gameTitle}`);
 }
 
-// Main processing function that follows all steps
+// Main processing function that follows all steps (batch processing)
 async function processAllSteps() {
   console.log('🚀 Starting PS Store Metacritic Extension - Following all steps...');
   
@@ -229,7 +216,10 @@ async function processAllSteps() {
     // Step 3: Calculate tile range
     const tileIndices = calculateTileRange(pageNumber);
     
-    // Process each tile index
+    // First pass: collect all valid games to process
+    const gameRequests = [];
+    const gameDataMap = new Map();
+    
     for (const tileIndex of tileIndices) {
       try {
         // Step 4: Get game name
@@ -250,25 +240,53 @@ async function processAllSteps() {
         // Step 5: Parse game name
         const parsedGameName = parseGameNameForUrl(gameName);
         
-        // Step 6, 7, 8: Fetch Metacritic scores
-        const scores = await fetchMetacriticScores(parsedGameName);
+        // Store game data for later processing
+        gameDataMap.set(parsedGameName, {
+          tileIndex: tileIndex,
+          originalName: gameName,
+          parsedName: parsedGameName
+        });
         
-        if (scores) {
-          // Step 9: Add scores to PS Store page
-          addScoresToProductTile(tileIndex, scores.metaScore, scores.userScore, gameName);
-        } else {
-          console.log(`No valid scores found for ${gameName}`);
-        }
-        
-        // Add delay between requests to be respectful
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Add to batch request
+        gameRequests.push({
+          gameUrl: `https://www.metacritic.com/game/${parsedGameName}/`,
+          parsedGameName: parsedGameName
+        });
         
       } catch (error) {
         console.error(`Error processing tile ${tileIndex}:`, error);
       }
     }
     
-    console.log('✅ Completed processing all steps');
+    if (gameRequests.length === 0) {
+      console.log('No games found to process');
+      return;
+    }
+    
+    console.log(`Found ${gameRequests.length} games to process. Starting batch fetch...`);
+    
+    // Step 6, 7, 8: Fetch all Metacritic scores at once
+    const allScores = await fetchAllMetacriticScores(gameRequests);
+    
+    // Second pass: apply scores to the page
+    for (const [parsedGameName, gameData] of gameDataMap) {
+      try {
+        const scores = allScores[parsedGameName];
+        
+        if (scores && scores.metaScore && scores.userScore) {
+          // Step 9: Add scores to PS Store page
+          addScoresToProductTile(gameData.tileIndex, scores.metaScore, scores.userScore, gameData.originalName);
+          console.log(`✅ Applied scores for ${gameData.originalName}: Meta: ${scores.metaScore}, User: ${scores.userScore}`);
+        } else {
+          console.log(`No valid scores found for ${gameData.originalName}`);
+        }
+        
+      } catch (error) {
+        console.error(`Error applying scores for ${gameData.originalName}:`, error);
+      }
+    }
+    
+    console.log('✅ Completed processing all steps with batch processing');
     
   } catch (error) {
     console.error('Error in main processing:', error);
