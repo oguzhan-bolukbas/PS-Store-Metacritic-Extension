@@ -138,6 +138,57 @@ function parseGameNameForUrl(gameName) {
   return parsedName;
 }
 
+// Generate both Arabic and Roman numeral variants for game URLs
+function generateGameVariants(parsedGameName) {
+  const variants = [parsedGameName]; // Start with original
+  
+  // Check if the game ends with Arabic numerals and create Roman numeral variant
+  const arabicToRoman = {
+    '2': 'ii',
+    '3': 'iii', 
+    '4': 'iv',
+    '5': 'v',
+    '6': 'vi',
+    '7': 'vii',
+    '8': 'viii',
+    '9': 'ix',
+    '10': 'x'
+  };
+  
+  for (const [arabic, roman] of Object.entries(arabicToRoman)) {
+    if (parsedGameName.endsWith(`-${arabic}`)) {
+      const romanVariant = parsedGameName.replace(new RegExp(`-${arabic}$`), `-${roman}`);
+      variants.push(romanVariant);
+      console.log(`🔄 Created Roman variant: "${parsedGameName}" → "${romanVariant}"`);
+      break;
+    }
+  }
+  
+  // Check if the game ends with Roman numerals and create Arabic numeral variant
+  const romanToArabic = {
+    'ii': '2',
+    'iii': '3',
+    'iv': '4', 
+    'v': '5',
+    'vi': '6',
+    'vii': '7',
+    'viii': '8',
+    'ix': '9',
+    'x': '10'
+  };
+  
+  for (const [roman, arabic] of Object.entries(romanToArabic)) {
+    if (parsedGameName.endsWith(`-${roman}`)) {
+      const arabicVariant = parsedGameName.replace(new RegExp(`-${roman}$`), `-${arabic}`);
+      variants.push(arabicVariant);
+      console.log(`🔄 Created Arabic variant: "${parsedGameName}" → "${arabicVariant}"`);
+      break;
+    }
+  }
+  
+  return variants;
+}
+
 // Step 6, 7, 8: Fetch Metacritic scores from live website (batch processing)
 async function fetchAllMetacriticScores(gameRequests) {
   try {
@@ -287,18 +338,25 @@ async function processAllSteps() {
         // Step 5: Parse game name
         const parsedGameName = parseGameNameForUrl(gameName);
         
+        // Generate both Arabic and Roman numeral variants
+        const gameVariants = generateGameVariants(parsedGameName);
+        console.log(`🎮 Generated ${gameVariants.length} variant(s) for "${gameName}": [${gameVariants.join(', ')}]`);
+        
         // Store game data for later processing
         gameDataMap.set(parsedGameName, {
           tileIndex: tileIndex,
           originalName: gameName,
-          parsedName: parsedGameName
+          parsedName: parsedGameName,
+          variants: gameVariants
         });
         
-        // Add to batch request
-        gameRequests.push({
-          gameUrl: `https://www.metacritic.com/game/${parsedGameName}/`,
-          parsedGameName: parsedGameName
-        });
+        // Add all variants to batch request
+        for (const variant of gameVariants) {
+          gameRequests.push({
+            gameUrl: `https://www.metacritic.com/game/${variant}/`,
+            parsedGameName: variant
+          });
+        }
         
       } catch (error) {
         console.error(`Error processing tile ${tileIndex}:`, error);
@@ -309,6 +367,12 @@ async function processAllSteps() {
       console.log('No games found to process');
       return;
     }
+
+    console.log(`📊 Summary: Found ${gameRequests.length} total requests for ${gameDataMap.size} unique games`);
+    console.log(`📋 Requests breakdown:`);
+    gameDataMap.forEach((gameData, parsedName) => {
+      console.log(`  - "${gameData.originalName}" → [${gameData.variants.join(', ')}]`);
+    });
     
     console.log(`Found ${gameRequests.length} games to process. Starting batch fetch...`);
     
@@ -318,14 +382,25 @@ async function processAllSteps() {
     // Second pass: apply scores to the page
     for (const [parsedGameName, gameData] of gameDataMap) {
       try {
-        const scores = allScores[parsedGameName];
+        let foundScores = null;
+        let usedVariant = null;
         
-        if (scores && scores.metaScore && scores.userScore) {
+        // Check scores for all variants, use the first one that has valid scores
+        for (const variant of gameData.variants) {
+          const scores = allScores[variant];
+          if (scores && scores.metaScore && scores.userScore) {
+            foundScores = scores;
+            usedVariant = variant;
+            break;
+          }
+        }
+        
+        if (foundScores) {
           // Step 9: Add scores to PS Store page
-          addScoresToProductTile(gameData.tileIndex, scores.metaScore, scores.userScore, gameData.originalName);
-          console.log(`✅ Applied scores for ${gameData.originalName}: Meta: ${scores.metaScore}, User: ${scores.userScore}`);
+          addScoresToProductTile(gameData.tileIndex, foundScores.metaScore, foundScores.userScore, gameData.originalName);
+          console.log(`✅ Applied scores for ${gameData.originalName} using variant "${usedVariant}": Meta: ${foundScores.metaScore}, User: ${foundScores.userScore}`);
         } else {
-          console.log(`No valid scores found for ${gameData.originalName}`);
+          console.log(`❌ No valid scores found for ${gameData.originalName} (tried variants: ${gameData.variants.join(', ')})`);
         }
         
       } catch (error) {
