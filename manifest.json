@@ -5,12 +5,17 @@
   "description": "Shows Metacritic scores on PlayStation Store pages",
   "permissions": [
     "activeTab",
-    "storage"
+    "storage",
+    "scripting",
+    "tabs"
   ],
   "host_permissions": [
     "https://store.playstation.com/*",
     "https://www.metacritic.com/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": ["https://store.playstation.com/*"],
