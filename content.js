@@ -82,8 +82,8 @@ function getProductType(tileIndex) {
 function shouldProcessProduct(productType) {
   switch (productType) {
     case 'PREMIUM EDITION':
-      console.log('PREMIUM EDITION - waiting for future implementation');
-      return false;
+      console.log('PREMIUM EDITION - will process with cleaned name');
+      return true;
     case 'ADD-ON':
       console.log('ADD-ON - never process this');
       return false;
@@ -101,16 +101,40 @@ function shouldProcessProduct(productType) {
 
 // Step 5: Parse game name for Metacritic URL format
 function parseGameNameForUrl(gameName) {
+  console.log(`🔄 BEFORE parsing: "${gameName}"`);
+  
   const parsedName = gameName
     .replace(/\s+(PS4\s*&\s*PS5|PS5\s*&\s*PS4|PS4|PS5)\s*$/i, '') // Remove platform suffixes
+    .replace(/:\s*\d{4}\s+(Deluxe|Ultimate|Gold|Premium|Special|Complete)\s+Edition$/i, '') // Remove ": 2025 Deluxe Edition"
+    .replace(/\s+\d{4}\s+(Deluxe|Ultimate|Gold|Premium|Special|Complete)\s+Edition$/i, '') // Remove " 2025 Deluxe Edition"
+    .replace(/\s+-\s+Cross-Gen\s+Bundle$/i, '') // Remove "- Cross-Gen Bundle"
+    .replace(/\s+Cross-Gen\s+Bundle$/i, '') // Remove "Cross-Gen Bundle"
+    .replace(/\s+(Digital\s+)?Deluxe\s+Edition$/i, '') // Remove "Digital Deluxe Edition"
+    .replace(/\s+Ultimate\s+Edition$/i, '') // Remove "Ultimate Edition"
+    .replace(/\s+Gold\s+Edition$/i, '') // Remove "Gold Edition"
+    .replace(/\s+Premium\s+Edition$/i, '') // Remove "Premium Edition"
+    .replace(/\s+Definitive\s+Edition$/i, '') // Remove "Definitive Edition"
+    .replace(/\s+Collector[''']?s?\s+Edition$/i, '') // Remove "Collector's Edition"
+    .replace(/\s+Special\s+Edition$/i, '') // Remove "Special Edition"
+    .replace(/\s+Complete\s+Edition$/i, '') // Remove "Complete Edition"
+    .replace(/\s+Game\s+of\s+the\s+Year\s+Edition$/i, '') // Remove "Game of the Year Edition"
+    .replace(/:\s+Definitive\s+Edition$/i, '') // Remove ": Definitive Edition"
+    .replace(/\s+-\s+(Gold|Ultimate|Deluxe|Premium|Special|Complete)\s+Edition$/i, '') // Remove "- Edition Name"
+    .replace(/\s+-\s+\d+-Year\s+Anniversary\s+Edition$/i, '') // Remove "- 3-Year Anniversary Edition"
+    .replace(/\s+\d+-Year\s+Anniversary\s+Edition$/i, '') // Remove "3-Year Anniversary Edition"
+    .replace(/®|™|©/g, '') // Remove trademark symbols
+    .replace(/:/g, ': ') // Normalize colons with space
+    .replace(/\s+/g, ' ') // Normalize multiple spaces to single space
+    .trim() // Remove leading/trailing whitespace
     .toLowerCase()
-    .replace(/™|®|©/g, '') // Remove trademark symbols
-    .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+    .replace(/[^a-z0-9\s:]/g, '') // Remove special characters but keep colons
+    .replace(/:/g, '-') // Convert colons to hyphens
     .replace(/\s+/g, '-') // Replace spaces with hyphens
     .replace(/-+/g, '-') // Replace multiple hyphens with single
     .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
   
-  console.log(`Parsed "${gameName}" to "${parsedName}"`);
+  console.log(`✅ AFTER parsing: "${parsedName}"`);
+  console.log(`📝 Parse result: "${gameName}" → "${parsedName}"`);
   return parsedName;
 }
 
