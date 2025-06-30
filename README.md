@@ -28,6 +28,22 @@ A cross-browser web extension that displays Metacritic scores on PlayStation Sto
 
 - Game names show games that are "vanilla"
 
+## Screenshots
+
+Here are examples of the extension in action on the PlayStation Store:
+
+### Black Myth: Wukong
+![Black Myth: Wukong with Metacritic Score](ss/black-myth-wukong.png)
+*Shows Meta: 81 and User: 8.2 scores alongside the discount badge*
+
+### Horizon Zero Dawn™ Remastered
+![Horizon Zero Dawn Remastered with Metacritic Score](ss/horizon-zero-down.png)
+*Displays Meta: 85 and User: 6.9 scores with the game listing*
+
+### The Midnight Walk
+![The Midnight Walk with Metacritic Score](ss/the-midnight-walk.png)
+*Features Meta: 77 and User: 8.4 scores integrated with the store interface*
+
 ## How it Works
 
 1. The extension scans PlayStation Store pages for game tiles
