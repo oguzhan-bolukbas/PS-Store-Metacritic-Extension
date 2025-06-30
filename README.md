@@ -6,7 +6,7 @@ A cross-browser web extension that displays Metacritic scores on PlayStation Sto
 
 - ✅ Automatically detects PlayStation Store game listings
 - 🎯 Adds Metacritic scores next to discount badges
-- 🎨 Color-coded scores (Green 75+, Yellow 50-74, Red 0-49)
+- 🎨 Color-coded scores (Green 79+, Yellow 50-79, Red 0-49)
 - ⚡ Real-time injection as pages load
 - 🔄 Works with dynamically loaded content
 
@@ -26,7 +26,7 @@ A cross-browser web extension that displays Metacritic scores on PlayStation Sto
 
 ## Current Implementation
 
-- **Black Myth: Wukong**: Shows score of 90 (hardcoded for testing)
+- Game names show games that are "vanilla"
 
 ## How it Works
 
@@ -45,11 +45,3 @@ A cross-browser web extension that displays Metacritic scores on PlayStation Sto
 ├── popup.html       # Extension popup interface
 └── README.md        # This file
 ```
-
-## Development Status
-
-This is step 1 of the development process. Next steps will include:
-- Dynamic Metacritic API integration
-- Extended game database
-- User settings and preferences
-- Performance optimizations
